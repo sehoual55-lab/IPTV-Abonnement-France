@@ -1184,6 +1184,206 @@ strong{color:#fff;font-weight:600}
 .aside-bloc li a{font-size:.87rem;color:var(--gris);line-height:1.45;display:block}
 .aside-bloc li a:hover{color:var(--bleu-clair)}
 
+/* ------------------------------------------------------------- Modale -- */
+
+.modale{
+  position:fixed;
+  inset:0;
+  z-index:200;
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  padding:clamp(12px,4vh,48px) 16px;
+  opacity:0;
+  visibility:hidden;
+  transition:opacity .25s,visibility .25s;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+.modale.est-ouverte{opacity:1;visibility:visible}
+
+.modale-fond{
+  position:fixed;
+  inset:0;
+  background:rgba(4,5,7,.82);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+}
+
+.modale-boite{
+  position:relative;
+  width:100%;
+  max-width:520px;
+  margin:auto;
+  background:
+    radial-gradient(120% 90% at 12% 0%,rgba(59,107,245,.16),transparent 55%),
+    linear-gradient(180deg,var(--surface-2),var(--surface));
+  border:1px solid var(--line-fort);
+  border-radius:22px;
+  padding:clamp(26px,4vw,38px);
+  box-shadow:0 40px 90px -30px rgba(0,0,0,.95);
+  transform:translateY(18px) scale(.985);
+  transition:transform .3s cubic-bezier(.2,.7,.3,1);
+}
+.modale.est-ouverte .modale-boite{transform:none}
+
+.modale-croix{
+  position:absolute;
+  top:16px;right:16px;
+  width:38px;height:38px;
+  border-radius:50%;
+  background:rgba(255,255,255,.06);
+  border:1px solid var(--line);
+  color:var(--gris);
+  cursor:pointer;
+  display:grid;place-items:center;
+  transition:background .2s,color .2s;
+}
+.modale-croix:hover{background:rgba(255,255,255,.14);color:#fff}
+.modale-croix svg{width:17px;height:17px}
+
+.modale-corps h2{font-size:clamp(1.5rem,3.4vw,1.85rem);margin:0 0 8px;padding-right:44px}
+.modale-intro{color:var(--gris);font-size:.93rem;margin:0 0 22px;max-width:42ch}
+
+.modale-recap{
+  background:rgba(0,0,0,.3);
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:18px 20px;
+  margin-bottom:22px;
+}
+.mr-ligne{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:14px;
+  padding:5px 0;
+  font-size:.9rem;
+  color:var(--gris);
+}
+.mr-ligne b{color:#fff;font-weight:600;text-align:right}
+.mr-sep{height:1px;background:var(--line);margin:12px 0}
+.mr-total{display:flex;justify-content:space-between;align-items:baseline;gap:14px}
+.mr-total span{font-size:.95rem;color:var(--gris)}
+.mr-total b{
+  font-family:var(--display);
+  font-size:1.6rem;
+  font-weight:700;
+  letter-spacing:-.035em;
+  color:var(--bleu-clair);
+}
+
+.modale .champ{margin-bottom:16px}
+
+/* --- téléphone international --- */
+.tel-ligne{display:flex;gap:8px}
+.tel-pays{
+  flex:0 0 138px;
+  min-width:0;
+  background:var(--surface-2);
+  border:1px solid var(--line-fort);
+  border-radius:var(--rayon-sm);
+  color:var(--blanc);
+  padding:13px 10px;
+  font-family:inherit;
+  font-size:.9rem;
+  cursor:pointer;
+  appearance:none;
+  -webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238C93A4' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 10px center;
+  background-size:14px;
+  padding-right:30px;
+  text-overflow:ellipsis;
+}
+.tel-pays:focus{border-color:var(--bleu);outline:none}
+.tel-pays option{background:var(--surface-2);color:var(--blanc)}
+.tel-num{flex:1;min-width:0}
+
+/* --- tuiles de paiement --- */
+.paiements{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.paiement{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  padding:14px 15px;
+  border-radius:12px;
+  border:1px solid var(--line-fort);
+  background:rgba(255,255,255,.03);
+  color:var(--blanc);
+  font-size:.92rem;
+  font-weight:600;
+  text-align:left;
+  cursor:pointer;
+  transition:border-color .2s,background .2s;
+}
+.paiement:hover{background:rgba(255,255,255,.07)}
+.paiement.est-choisi{
+  border-color:var(--bleu);
+  background:rgba(59,107,245,.14);
+  box-shadow:0 0 0 1px rgba(59,107,245,.45) inset;
+}
+.paiement-ico{
+  width:32px;height:32px;
+  flex:none;
+  border-radius:9px;
+  display:grid;place-items:center;
+  background:rgba(255,255,255,.06);
+  color:var(--gris);
+  transition:color .2s,background .2s;
+}
+.paiement-ico svg{width:17px;height:17px}
+.paiement.est-choisi .paiement-ico{background:rgba(59,107,245,.25);color:var(--bleu-clair)}
+
+.modale-valider{margin-top:20px;font-size:1rem;padding:16px 24px}
+
+.modale-note{
+  display:flex;
+  gap:9px;
+  align-items:flex-start;
+  margin:18px 0 0;
+  font-size:.8rem;
+  line-height:1.55;
+  color:var(--gris-sourd);
+  text-align:left;
+}
+.modale-note svg{width:15px;height:15px;flex:none;margin-top:2px;color:var(--bleu-clair)}
+
+.modale-wa{margin:12px 0 0;font-size:.85rem;color:var(--gris);text-align:center}
+.modale-wa a{color:var(--vert-clair);font-weight:600}
+.modale-wa a:hover{text-decoration:underline}
+
+.modale-annuler{
+  display:block;
+  width:100%;
+  margin-top:16px;
+  padding:12px;
+  background:none;
+  border:0;
+  color:var(--gris-sourd);
+  font-size:.92rem;
+  cursor:pointer;
+  transition:color .2s;
+}
+.modale-annuler:hover{color:var(--blanc)}
+
+/* --- écran de confirmation --- */
+.modale-succes{text-align:center}
+.modale-succes h2{padding-right:0}
+.modale-succes p{color:var(--gris);font-size:.95rem;max-width:38ch;margin:0 auto 24px}
+.modale-succes b{color:var(--blanc)}
+.succes-rond{
+  width:62px;height:62px;
+  margin:6px auto 20px;
+  border-radius:50%;
+  display:grid;place-items:center;
+  background:rgba(18,184,134,.16);
+  border:1px solid rgba(91,227,184,.4);
+  color:var(--vert-clair);
+}
+.succes-rond svg{width:27px;height:27px}
+
 /* ----------------------------------------------------------- Commande -- */
 
 .commande-grille{
@@ -1424,6 +1624,7 @@ strong{color:#fff;font-weight:600}
   .mise-en-page-article{grid-template-columns:1fr;gap:40px}
   .aside-sticky{position:static}
   .commande-grille{grid-template-columns:1fr;gap:34px}
+  .paiements{grid-template-columns:1fr}
   .commande-recap{position:static}
   .wa-panneau{grid-template-columns:1fr;gap:30px}
   .wa-panneau-texte h2{max-width:none}
@@ -1444,6 +1645,10 @@ strong{color:#fff;font-weight:600}
   .grille-4{grid-template-columns:1fr}
   .grille-tarifs{grid-template-columns:1fr;gap:30px}
   .wa-flottant{right:14px;bottom:14px;width:52px;height:52px}
+  .modale{padding:0;align-items:stretch}
+  .modale-boite{border-radius:0;border:0;min-height:100dvh;max-width:none;padding:26px 18px 40px}
+  .tel-pays{flex:0 0 118px;font-size:.84rem}
+  .modale-annuler{width:100%}
   .wa-bulle{display:none}
   .stepper-btn{width:38px;height:38px}
   .confiance-grille{grid-template-columns:1fr}

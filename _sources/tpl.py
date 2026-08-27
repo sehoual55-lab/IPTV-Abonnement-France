@@ -173,6 +173,7 @@ FOOTER = f"""</main>
 </a>
 <span class="wa-bulle">Une question ? Écrivez-nous sur WhatsApp</span>
 
+<script src="/assets/js/indicatifs.js"></script>
 <script src="/assets/js/config.js"></script>
 <script src="/assets/js/main.js" defer></script>
 </body>

@@ -111,6 +111,24 @@ sinon vous devrez répercuter la modification sur 24 fichiers à la main.
 
 ## 6. Le tunnel de commande
 
+« Commander maintenant » ouvre une **modale** sans quitter la page : récapitulatif de l'offre,
+nom, e-mail, téléphone avec sélecteur d'indicatif (235 pays, drapeaux calculés depuis le code
+ISO — aucune image chargée), quatre tuiles de paiement, puis un écran de confirmation.
+Échap et le clic sur le fond ferment la modale ; le focus est piégé à l'intérieur tant qu'elle
+est ouverte.
+
+Le numéro est normalisé à l'envoi : `0612345678` avec le Maroc sélectionné devient
+`+212 612345678`. Le code ISO du pays part aussi dans une colonne dédiée de la feuille.
+
+La page `/commande/` reste en place comme repli — elle sert les liens directs et fonctionne à
+l'identique, avec les mêmes composants. Le `href` des boutons pointe toujours vers elle, la
+modale n'étant qu'une interception JavaScript : sans JS, le parcours continue de fonctionner.
+
+Le pays présélectionné se change avec `pays_defaut` dans `config.js`, et les moyens de paiement
+avec `moyens_paiement` (id, nom, icône parmi carte / paypal / virement / whatsapp).
+
+### Ancienne version (page pleine)
+
 « Commander maintenant » n'ouvre plus WhatsApp directement : le bouton mène à
 `/commande/?offre=gold&c=2`, qui reprend la formule et le nombre de connexions choisis sur la carte.
 

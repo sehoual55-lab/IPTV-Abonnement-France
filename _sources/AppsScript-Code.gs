@@ -25,7 +25,7 @@
 /* --------------------------------------------------------------- Réglages */
 
 var SHEET_ID     = '1kc2jW078-lW-fp_WOPRX1XyzHIPjP1YjoVU-157Bsi4';
-var EMAIL_ALERTE = 'imadamhine@gmail.com';   // ← destinataire des alertes
+var EMAIL_ALERTE = 'xyz905391@gmail.com';    // ← destinataire des alertes
 var SITE         = 'iptvabonnementfrance.store';
 var FUSEAU       = 'Europe/Paris';
 var PREFIXE_REF  = 'IAF';                    // préfixe des références de commande
@@ -35,7 +35,7 @@ var ONGLET_CONTACTS  = 'Contacts';
 
 var COLONNES_COMMANDES = [
   'Date', 'Référence', 'Statut', 'Offre', 'Durée', 'Bonus', 'Connexions',
-  'Total', 'Code promo', 'Nom', 'E-mail', 'Téléphone', 'Appareil',
+  'Total', 'Code promo', 'Nom', 'E-mail', 'Téléphone', 'Pays', 'Appareil',
   'Paiement', 'Précisions', 'Page', 'Navigateur'
 ];
 
@@ -106,35 +106,35 @@ function lireCorps_(e) {
 /* ------------------------------------------------------------- Écriture ---- */
 
 function enregistrerCommande_(d, e) {
-  var feuille = onglet_(ONGLET_COMMANDES, COLONNES_COMMANDES);
+  var feuille = ongletCommandes_();
   var ref = reference_(feuille);
 
-  feuille.appendRow([
-    horodatage_(),
-    ref,
-    'Nouvelle',
-    txt_(d.offre),
-    txt_(d.duree),
-    txt_(d.bonus),
-    txt_(d.connexions),
-    txt_(d.total),
-    txt_(d.code_promo),
-    txt_(d.nom),
-    txt_(d.email),
-    txt_(d.telephone),
-    txt_(d.appareil),
-    txt_(d.paiement),
-    txt_(d.notes),
-    txt_(d.page),
-    navigateur_(e)
-  ]);
+  ecrireParEntetes_(feuille, {
+    date:       horodatage_(),
+    reference:  ref,
+    statut:     'Nouvelle',
+    offre:      txt_(d.offre),
+    duree:      txt_(d.duree),
+    bonus:      txt_(d.bonus),
+    connexions: txt_(d.connexions),
+    total:      txt_(d.total),
+    promo:      txt_(d.code_promo),
+    nom:        txt_(d.nom),
+    email:      txt_(d.email),
+    telephone:  txt_(d.telephone),
+    pays:       txt_(d.pays),
+    appareil:   txt_(d.appareil),
+    paiement:   txt_(d.paiement),
+    notes:      txt_(d.notes),
+    page:       txt_(d.page),
+    navigateur: navigateur_(e)
+  });
 
-  finaliser_(feuille, COLONNES_COMMANDES.length);
   return ref;
 }
 
 function enregistrerContact_(d, e) {
-  var feuille = onglet_(ONGLET_CONTACTS, COLONNES_CONTACTS);
+  var feuille = ongletContacts_();
   feuille.appendRow([
     horodatage_(),
     'Non traité',
@@ -149,24 +149,109 @@ function enregistrerContact_(d, e) {
 }
 
 /**
- * Récupère l'onglet, le crée avec ses en-têtes s'il n'existe pas encore.
+ * Récupère l'onglet des commandes.
+ * Priorité : (1) un onglet nommé ONGLET_COMMANDES, (2) le premier onglet du
+ * classeur s'il a déjà une ligne d'en-têtes que vous avez saisie à la main,
+ * (3) sinon on le crée. Objectif : écrire dans VOTRE feuille, pas à côté.
  */
-function onglet_(nom, colonnes) {
+function ongletCommandes_() {
   var classeur = SpreadsheetApp.openById(SHEET_ID);
-  var feuille = classeur.getSheetByName(nom);
+  var feuille = classeur.getSheetByName(ONGLET_COMMANDES);
+  if (feuille) return feuille;
 
-  if (!feuille) {
-    feuille = classeur.insertSheet(nom);
-    feuille.appendRow(colonnes);
-    var entete = feuille.getRange(1, 1, 1, colonnes.length);
-    entete.setFontWeight('bold')
-          .setBackground('#1E4FD8')
-          .setFontColor('#FFFFFF')
-          .setVerticalAlignment('middle');
-    feuille.setRowHeight(1, 34);
-    feuille.setFrozenRows(1);
+  var premier = classeur.getSheets()[0];
+  if (premier && premier.getLastRow() >= 1 && premier.getLastColumn() >= 2) {
+    // Le premier onglet a déjà des en-têtes : on s'en sert.
+    return premier;
   }
+  return creerOnglet_(classeur, ONGLET_COMMANDES, COLONNES_COMMANDES);
+}
+
+function ongletContacts_() {
+  var classeur = SpreadsheetApp.openById(SHEET_ID);
+  return classeur.getSheetByName(ONGLET_CONTACTS) ||
+         creerOnglet_(classeur, ONGLET_CONTACTS, COLONNES_CONTACTS);
+}
+
+function creerOnglet_(classeur, nom, colonnes) {
+  var feuille = classeur.insertSheet(nom);
+  feuille.appendRow(colonnes);
+  feuille.getRange(1, 1, 1, colonnes.length)
+         .setFontWeight('bold')
+         .setBackground('#1E4FD8')
+         .setFontColor('#FFFFFF')
+         .setVerticalAlignment('middle');
+  feuille.setRowHeight(1, 34);
+  feuille.setFrozenRows(1);
   return feuille;
+}
+
+/**
+ * Écrit une ligne en faisant correspondre les valeurs aux EN-TÊTES EXISTANTS.
+ * Vous pouvez donc renommer, réordonner ou supprimer des colonnes dans la
+ * feuille : le script suit, au lieu de décaler tout d'une case.
+ * Les valeurs sans en-tête correspondant sont simplement ignorées.
+ */
+function ecrireParEntetes_(feuille, valeurs) {
+  var nbCol = Math.max(feuille.getLastColumn(), 1);
+  var entetes = feuille.getRange(1, 1, 1, nbCol).getValues()[0];
+
+  var ligne = new Array(nbCol).fill('');
+  var placee = false;
+
+  for (var c = 0; c < nbCol; c++) {
+    var cle = normaliser_(entetes[c]);
+    if (!cle) continue;
+    for (var nom in valeurs) {
+      if (ALIAS_[nom] && ALIAS_[nom].indexOf(cle) !== -1) {
+        ligne[c] = valeurs[nom];
+        placee = true;
+        break;
+      }
+    }
+  }
+
+  // Aucune correspondance : la feuille n'a pas d'en-têtes exploitables,
+  // on écrit dans l'ordre par défaut plutôt que de perdre la commande.
+  if (!placee) {
+    feuille.appendRow(COLONNES_COMMANDES.map(function (c) {
+      var cle = normaliser_(c);
+      for (var nom in valeurs) {
+        if (ALIAS_[nom] && ALIAS_[nom].indexOf(cle) !== -1) return valeurs[nom];
+      }
+      return '';
+    }));
+    return;
+  }
+  feuille.appendRow(ligne);
+}
+
+/** Noms d'en-têtes acceptés pour chaque donnée (accents et casse ignorés). */
+var ALIAS_ = {
+  date:       ['date', 'horodatage', 'timestamp', 'recule', 'datedecommande'],
+  reference:  ['reference', 'ref', 'nocommande', 'numerodecommande'],
+  statut:     ['statut', 'status', 'etat'],
+  offre:      ['formule', 'offre', 'abonnement', 'plan', 'pack'],
+  duree:      ['duree', 'periode'],
+  bonus:      ['bonus', 'moisofferts', 'offert'],
+  connexions: ['connexions', 'connexion', 'nbconnexions', 'ecrans'],
+  total:      ['prix', 'prixe', 'total', 'montant', 'totalareger', 'totalaregler'],
+  promo:      ['codepromo', 'promo', 'coupon'],
+  nom:        ['nom', 'nomcomplet', 'client', 'nomprenom'],
+  email:      ['email', 'mail', 'adresseemail', 'courriel'],
+  telephone:  ['telephone', 'tel', 'mobile', 'whatsapp', 'numero'],
+  pays:       ['pays', 'country', 'indicatif'],
+  appareil:   ['appareil', 'device', 'materiel'],
+  paiement:   ['paiement', 'modedepaiement', 'moyendepaiement', 'payment'],
+  notes:      ['precisions', 'notes', 'remarques', 'commentaire', 'message'],
+  page:       ['page', 'url', 'source'],
+  navigateur: ['navigateur', 'useragent', 'ua']
+};
+
+function normaliser_(v) {
+  return String(v == null ? '' : v)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 /**
@@ -211,6 +296,7 @@ function alerteCommande_(d, ref) {
     ['Nom',         txt_(d.nom)],
     ['E-mail',      txt_(d.email)],
     ['Téléphone',   txt_(d.telephone) || '—'],
+    ['Pays',        txt_(d.pays) || '—'],
     ['Appareil',    txt_(d.appareil) || '—'],
     ['Paiement',    txt_(d.paiement)],
     ['Précisions',  txt_(d.notes) || '—'],
@@ -333,10 +419,14 @@ function reponse_(ok, message, extra) {
  * et déclencher la demande d'autorisation Google.
  */
 function initialiser() {
-  onglet_(ONGLET_COMMANDES, COLONNES_COMMANDES);
-  onglet_(ONGLET_CONTACTS, COLONNES_CONTACTS);
-  Logger.log('Onglets prêts dans : ' +
-             SpreadsheetApp.openById(SHEET_ID).getName());
+  var classeur = SpreadsheetApp.openById(SHEET_ID);
+  var cmd = ongletCommandes_();
+  var ct  = ongletContacts_();
+  Logger.log('Classeur : ' + classeur.getName());
+  Logger.log('Commandes -> onglet « ' + cmd.getName() + ' »');
+  Logger.log('Contacts  -> onglet « ' + ct.getName() + ' »');
+  Logger.log('En-têtes détectés : ' +
+    cmd.getRange(1, 1, 1, Math.max(cmd.getLastColumn(), 1)).getValues()[0].join(' | '));
 }
 
 /**
@@ -350,7 +440,7 @@ function testerCommande() {
         offre: 'Gold', duree: '15 mois', bonus: '+3 mois offerts',
         connexions: 2, total: '92,48 €', code_promo: '',
         nom: 'Test Dupont', email: 'test@exemple.fr',
-        telephone: '+33 6 12 34 56 78', appareil: 'Samsung TV 2021',
+        telephone: '+212 612345678', pays: 'MA', appareil: 'Samsung TV 2021',
         paiement: 'PayPal', notes: 'Ceci est un test.',
         page: 'https://' + SITE + '/commande/?offre=gold&c=2'
       })

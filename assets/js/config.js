@@ -162,11 +162,14 @@ window.CONFIG = {
      choisit un moyen, vous lui envoyez ensuite le lien ou les coordonnées.
      --------------------------------------------------------------------- */
   moyens_paiement: [
-    "Lien de paiement par carte",
-    "PayPal",
-    "Virement bancaire",
-    "À convenir sur WhatsApp"
+    { id: "carte",    nom: "Carte bancaire",    icone: "carte" },
+    { id: "paypal",   nom: "PayPal",            icone: "paypal" },
+    { id: "virement", nom: "Virement / Crypto", icone: "virement" },
+    { id: "whatsapp", nom: "Via WhatsApp",      icone: "whatsapp" }
   ],
+
+  /* Pays présélectionné dans le sélecteur d'indicatif téléphonique. */
+  pays_defaut: "FR",
 
   /* ---------------------------------------------------------------------
      CODES PROMO. Clé = code en majuscules, valeur = remise (0.10 = 10 %).

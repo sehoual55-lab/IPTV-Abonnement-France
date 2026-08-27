@@ -112,6 +112,83 @@
     return v.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  /* ============================ Briques partagées du tunnel ============== */
+
+  var ICONES_PAIEMENT = {
+    carte:    '<rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/>',
+    paypal:   '<path d="M6.5 20 8.8 5.2h5.4c2.6 0 4.2 1.3 3.8 3.8-.4 2.7-2.4 4.1-5.2 4.1h-2L10 20z"/>',
+    virement: '<path d="M3 10 12 4l9 6"/><path d="M5 10v8M12 10v8M19 10v8M3 20h18"/>',
+    whatsapp: '<path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.4L3.5 20.5l1.7-5A8.5 8.5 0 1 1 21 11.5z"/>'
+  };
+
+  function svgIcone(d) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" ' +
+           'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+  }
+
+  /* Tuiles de choix du moyen de paiement */
+  function tuilesPaiement(prefixe) {
+    var m = C.moyens_paiement || [];
+    return '<div class="paiements" role="radiogroup" aria-label="Mode de paiement">' +
+      m.map(function (p, i) {
+        return '<button type="button" class="paiement' + (i === 0 ? ' est-choisi' : '') + '" ' +
+          'role="radio" aria-checked="' + (i === 0) + '" data-paiement="' + p.nom + '" ' +
+          'id="' + prefixe + '-pay-' + p.id + '">' +
+          '<span class="paiement-ico">' + svgIcone(ICONES_PAIEMENT[p.icone] || ICONES_PAIEMENT.carte) +
+          '</span>' + p.nom + '</button>';
+      }).join('') + '</div>';
+  }
+
+  function brancherPaiements(racine) {
+    var tuiles = $$(".paiement", racine);
+    tuiles.forEach(function (t) {
+      t.addEventListener("click", function () {
+        tuiles.forEach(function (x) {
+          x.classList.remove("est-choisi");
+          x.setAttribute("aria-checked", "false");
+        });
+        t.classList.add("est-choisi");
+        t.setAttribute("aria-checked", "true");
+      });
+    });
+    return function () {
+      var choisi = $(".paiement.est-choisi", racine);
+      return choisi ? choisi.getAttribute("data-paiement") : "";
+    };
+  }
+
+  /* Champ téléphone avec sélecteur d'indicatif international */
+  function champTelephone(prefixe) {
+    var pays = window.INDICATIFS || [];
+    var defaut = C.pays_defaut || "FR";
+    var options = pays.map(function (p) {
+      return '<option value="' + p.iso + '" data-ind="' + p.ind + '"' +
+             (p.iso === defaut ? ' selected' : '') + '>' +
+             p.drapeau + ' +' + p.ind + '  ' + p.nom + '</option>';
+    }).join('');
+    return '<div class="tel-ligne">' +
+      '<select class="tel-pays" id="' + prefixe + '-pays" aria-label="Indicatif du pays">' +
+        options + '</select>' +
+      '<input type="tel" class="tel-num" id="' + prefixe + '-tel" ' +
+        'inputmode="tel" autocomplete="tel-national" placeholder="6 12 34 56 78">' +
+      '</div>';
+  }
+
+  function lireTelephone(prefixe) {
+    var sel = $("#" + prefixe + "-pays");
+    var num = $("#" + prefixe + "-tel");
+    if (!sel || !num) return "";
+    var brut = num.value.replace(/[^0-9]/g, "");
+    if (!brut) return "";
+    var ind = sel.options[sel.selectedIndex].getAttribute("data-ind");
+    return "+" + ind + " " + brut.replace(/^0+/, "");
+  }
+
+  function paysChoisi(prefixe) {
+    var sel = $("#" + prefixe + "-pays");
+    return sel ? sel.value : "";
+  }
+
   /* ------------------------------------------------------------ Tarifs -- */
   var zoneTarifs = $("[data-tarifs]");
   if (zoneTarifs && Array.isArray(C.offres)) {
@@ -154,7 +231,7 @@
           '</ul>' +
           '<a class="btn ' + (o.badge_type === "vert" ? "btn--vert" :
               (o.badge ? "btn--primaire" : "btn--fantome")) + ' btn--bloc" data-commander ' +
-              'href="' + lienCommande(o, 1) + '">Commander maintenant</a>' +
+              'href="' + lienCommande(o, 1) + '" data-ouvre-modale>Commander maintenant</a>' +
         '</article>';
     }).join('');
 
@@ -181,6 +258,17 @@
       moins.addEventListener("click", function () { if (n > 1) { n--; maj(); } });
       plus.addEventListener("click", function () { if (n < maxC) { n++; maj(); } });
       maj();
+    });
+
+    /* Les CTA ouvrent la modale ; le href reste valide en repli sans JS. */
+    $$("[data-ouvre-modale]", zoneTarifs).forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        var carte = a.closest("[data-offre]");
+        var o = C.offres[parseInt(carte.getAttribute("data-offre"), 10)];
+        var n = parseInt($("[data-nb]", carte) ? $("[data-nb]", carte).textContent : "1", 10) || 1;
+        e.preventDefault();
+        ouvrirModale(o, n);
+      });
     });
 
     reobserver(zoneTarifs);
@@ -267,6 +355,204 @@
     a.href = baseUrl() + "commande/";
   });
 
+  /* ============================== Modale de commande ==================== */
+
+  var modale = null, modaleEtat = null, focusAvant = null;
+
+  function construireModale() {
+    if (modale) return modale;
+    modale = doc.createElement("div");
+    modale.className = "modale";
+    modale.setAttribute("role", "dialog");
+    modale.setAttribute("aria-modal", "true");
+    modale.setAttribute("aria-labelledby", "modale-titre");
+    modale.innerHTML = '' +
+      '<div class="modale-fond" data-fermer></div>' +
+      '<div class="modale-boite">' +
+        '<button type="button" class="modale-croix" data-fermer aria-label="Fermer">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+          'stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>' +
+        '</button>' +
+        '<div class="modale-corps"></div>' +
+      '</div>';
+    doc.body.appendChild(modale);
+
+    doc.addEventListener("keydown", function (e) {
+      if (!modale.classList.contains("est-ouverte")) return;
+      if (e.key === "Escape") fermerModale();
+      if (e.key === "Tab") piegerFocus(e);
+    });
+    return modale;
+  }
+
+  function brancherFermeture() {
+    $$("[data-fermer]", modale).forEach(function (el) {
+      el.addEventListener("click", fermerModale);
+    });
+  }
+
+  function piegerFocus(e) {
+    var f = $$('a[href], button:not([disabled]), input, select, textarea', modale)
+      .filter(function (el) { return el.offsetParent !== null; });
+    if (!f.length) return;
+    var premier = f[0], dernier = f[f.length - 1];
+    if (e.shiftKey && doc.activeElement === premier) { e.preventDefault(); dernier.focus(); }
+    else if (!e.shiftKey && doc.activeElement === dernier) { e.preventDefault(); premier.focus(); }
+  }
+
+  function fermerModale() {
+    if (!modale) return;
+    modale.classList.remove("est-ouverte");
+    doc.body.style.overflow = "";
+    if (focusAvant && focusAvant.focus) focusAvant.focus();
+  }
+
+  function ouvrirModale(offre, nb) {
+    construireModale();
+    focusAvant = doc.activeElement;
+    modaleEtat = { offre: offre, nb: nb || 1 };
+
+    var sansPrix = (offre.prix === null || offre.prix === undefined);
+    var totalTxt = sansPrix ? "Sur demande"
+                            : fmtPrix(total(offre.prix, modaleEtat.nb)) + " " + (C.devise || "");
+    var pluriel = modaleEtat.nb > 1 ? "s" : "";
+
+    $(".modale-corps", modale).innerHTML = '' +
+      '<h2 id="modale-titre">Finalisez votre commande</h2>' +
+      '<p class="modale-intro">Vérifiez votre formule et renseignez vos coordonnées pour continuer.</p>' +
+
+      '<div class="modale-recap">' +
+        '<div class="mr-ligne"><span>Abonnement</span><b>' + offre.nom + ' — ' + offre.duree +
+          (offre.bonus ? ' (' + offre.bonus + ')' : '') + '</b></div>' +
+        '<div class="mr-ligne"><span>Connexions</span><b id="m-nb">' + modaleEtat.nb +
+          ' connexion' + pluriel + ' simultanée' + pluriel + '</b></div>' +
+        '<div class="mr-sep"></div>' +
+        '<div class="mr-total"><span>Total à régler</span><b id="m-total">' + totalTxt + '</b></div>' +
+      '</div>' +
+
+      '<div class="champ"><label for="m-nom">Nom complet</label>' +
+        '<input type="text" id="m-nom" autocomplete="name" placeholder="Jean Dupont" required></div>' +
+
+      '<div class="champ"><label for="m-email">Adresse e-mail</label>' +
+        '<input type="email" id="m-email" autocomplete="email" placeholder="jean.dupont@email.fr" required></div>' +
+
+      '<div class="champ"><label for="m-tel">Téléphone</label>' + champTelephone("m") + '</div>' +
+
+      '<div class="champ"><label>Mode de paiement</label>' + tuilesPaiement("m") + '</div>' +
+
+      '<div class="message-form" id="m-msg" role="status" aria-live="polite"></div>' +
+
+      '<button type="button" class="btn btn--primaire btn--bloc modale-valider" id="m-valider">' +
+        'Continuer vers le paiement</button>' +
+
+      '<p class="modale-note">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+        'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>' +
+        "Aucune donnée de carte n'est saisie sur ce site. Après votre commande, nous vous " +
+        'envoyons les instructions de paiement sécurisé.</p>' +
+      (C.whatsapp ? '<p class="modale-wa">Une question ? <a data-wa-modale href="#">WhatsApp ' +
+        (C.whatsapp_affiche || ("+" + C.whatsapp)) + '</a></p>' : '') +
+      '<button type="button" class="modale-annuler" data-fermer>Annuler</button>';
+
+    var lirePaiement = brancherPaiements(modale);
+    brancherFermeture();
+
+    if (C.whatsapp) {
+      $$("[data-wa-modale]", modale).forEach(function (el) {
+        el.href = "https://wa.me/" + C.whatsapp;
+        el.target = "_blank";
+        el.rel = "noopener";
+      });
+    }
+
+    $("#m-valider", modale).addEventListener("click", function () {
+      envoyerDepuisModale(lirePaiement);
+    });
+
+    modale.classList.add("est-ouverte");
+    doc.body.style.overflow = "hidden";
+    setTimeout(function () { var n = $("#m-nom", modale); if (n) n.focus(); }, 60);
+  }
+
+  function envoyerDepuisModale(lirePaiement) {
+    var msg = $("#m-msg", modale);
+    var o = modaleEtat.offre;
+    var d = {
+      offre: o.nom, duree: o.duree, bonus: o.bonus || "",
+      connexions: modaleEtat.nb,
+      total: $("#m-total", modale).textContent,
+      code_promo: "",
+      nom: $("#m-nom", modale).value.trim(),
+      email: $("#m-email", modale).value.trim(),
+      telephone: lireTelephone("m"),
+      pays: paysChoisi("m"),
+      appareil: "",
+      paiement: lirePaiement(),
+      notes: "",
+      page: location.href
+    };
+
+    if (!d.nom) {
+      afficher(msg, "ko", "Merci d'indiquer votre nom.");
+      $("#m-nom", modale).focus();
+      return;
+    }
+    if (!d.email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.email)) {
+      afficher(msg, "ko", "Merci d'indiquer une adresse e-mail valide.");
+      $("#m-email", modale).focus();
+      return;
+    }
+
+    var btn = $("#m-valider", modale);
+    btn.disabled = true;
+    var ancien = btn.textContent;
+    btn.textContent = "Envoi…";
+
+    function terminer() {
+      btn.disabled = false;
+      btn.textContent = ancien;
+      succesModale(d);
+    }
+    if (!C.endpoint) { terminer(); return; }
+    fetch(C.endpoint, {
+      method: "POST", mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(d)
+    }).then(terminer).catch(terminer);
+  }
+
+  function succesModale(d) {
+    var wa = "";
+    if (C.whatsapp) {
+      var t = "NOUVELLE COMMANDE\n\n" +
+        "Offre : " + d.offre + " (" + d.duree + (d.bonus ? " " + d.bonus : "") + ")\n" +
+        "Connexions : " + d.connexions + "\n" +
+        "Total : " + d.total + "\n\n" +
+        "Nom : " + d.nom + "\n" +
+        "E-mail : " + d.email + "\n" +
+        (d.telephone ? "Téléphone : " + d.telephone + "\n" : "") +
+        "Paiement : " + d.paiement;
+      wa = "https://wa.me/" + C.whatsapp + "?text=" + encodeURIComponent(t);
+      window.open(wa, "_blank", "noopener");
+    }
+
+    $(".modale-corps", modale).innerHTML = '' +
+      '<div class="modale-succes">' +
+        '<span class="succes-rond">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" ' +
+          'stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
+        '</span>' +
+        '<h2 id="modale-titre">Commande enregistrée</h2>' +
+        '<p>Merci ' + d.nom.split(" ")[0] + '. Nous vous envoyons les instructions de paiement à ' +
+        '<b>' + d.email + '</b>, puis vos accès dès confirmation.</p>' +
+        (wa ? '<a class="btn btn--vert btn--bloc" href="' + wa + '" target="_blank" rel="noopener">' +
+              'Confirmer sur WhatsApp</a>' : '') +
+        '<button type="button" class="modale-annuler" data-fermer>Fermer</button>' +
+      '</div>';
+    brancherFermeture();
+  }
+
   /* -------------------------------------------------- Bouton WhatsApp --- */
   if (!C.whatsapp) {
     $$("[data-whatsapp]").forEach(function (el) { el.remove(); });
@@ -322,10 +608,6 @@
                o.nom + ' — ' + o.duree + (o.bonus ? ' (' + o.bonus + ')' : '') + '</option>';
       }).join('');
 
-      var selPaiement = (C.moyens_paiement || []).map(function (m) {
-        return '<option value="' + m + '">' + m + '</option>';
-      }).join('');
-
       var champPromo = Object.keys(promos).length ? '' +
         '<div class="promo-ligne">' +
           '<input type="text" id="promo" placeholder="Code promo" autocomplete="off">' +
@@ -365,8 +647,7 @@
             '<p class="tiny" style="margin:0">C\'est à cette adresse que vos informations de configuration seront envoyées.</p>' +
           '</div>' +
           '<div class="champ">' +
-            '<label for="cmd-tel">Téléphone ou WhatsApp <span style="text-transform:none">(facultatif)</span></label>' +
-            '<input type="tel" id="cmd-tel" autocomplete="tel" placeholder="+33 6 12 34 56 78">' +
+            '<label for="cmd-tel">Téléphone ou WhatsApp</label>' + champTelephone("cmd") +
           '</div>' +
           '<div class="champ">' +
             '<label for="cmd-appareil">Appareil utilisé</label>' +
@@ -376,8 +657,7 @@
 
           '<h2 class="commande-titre">3 · Paiement</h2>' +
           '<div class="champ">' +
-            '<label for="cmd-paiement">Moyen de paiement souhaité</label>' +
-            '<select id="cmd-paiement">' + selPaiement + '</select>' +
+            '<label>Moyen de paiement souhaité</label>' + tuilesPaiement("cmd") +
           '</div>' +
           '<div class="encart" style="margin:0">' +
             '<p style="font-size:.9rem;margin:0">Aucun paiement n\'est demandé sur cette page et ' +
@@ -417,6 +697,8 @@
           '</div>' +
         '</aside>' +
       '</div>';
+
+      var lirePaiementCmd = brancherPaiements(zoneCmd);
 
       /* -------- Références -------- */
       var elOffre = $("#cmd-offre"), elNb = $("#cmd-nb"), elMot = $("#cmd-mot");
@@ -504,9 +786,10 @@
           code_promo: codeApplique,
           nom: $("#cmd-nom").value.trim(),
           email: $("#cmd-email").value.trim(),
-          telephone: $("#cmd-tel").value.trim(),
+          telephone: lireTelephone("cmd"),
+          pays: paysChoisi("cmd"),
           appareil: $("#cmd-appareil").value.trim(),
-          paiement: $("#cmd-paiement").value,
+          paiement: lirePaiementCmd(),
           notes: $("#cmd-notes").value.trim(),
           page: location.href
         };
