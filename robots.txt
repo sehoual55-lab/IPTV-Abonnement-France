@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Pages légales : accessibles mais non indexées (voir meta robots)
+Disallow: /assets/js/config.js
+Disallow: /commande/
+
+Sitemap: https://iptvabonnementfrance.store/sitemap.xml
