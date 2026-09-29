@@ -163,7 +163,6 @@ window.CONFIG = {
      --------------------------------------------------------------------- */
   moyens_paiement: [
     { id: "carte",    nom: "Carte bancaire",    icone: "carte" },
-    { id: "paypal",   nom: "PayPal",            icone: "paypal" },
     { id: "virement", nom: "Virement / Crypto", icone: "virement" },
     { id: "whatsapp", nom: "Via WhatsApp",      icone: "whatsapp" }
   ],
